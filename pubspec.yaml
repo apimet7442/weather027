@@ -62,7 +62,7 @@ flutter:
   - assets/lottie/clouds.json
   - assets/lottie/rain.json
   - assets/lottie/mist.json
-  - assets/lottie/partlycloudy.json
+  - assets/lottie/weather-partly-cloudy.json
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
