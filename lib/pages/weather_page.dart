@@ -53,7 +53,7 @@ class _WeatherPageState extends State<WeatherPage> {
           _zip, _selectedCountry, _selectedUnit);
       setState(() => _weather = weather);
     } catch (e) {
-      _showError("ZIP code not found.");
+      _showError("ZIP code not found dasdasdsdasdsad.");
     }
   }
 
