@@ -202,7 +202,7 @@ class _WeatherPageState extends State<WeatherPage> {
     );
   }
 
-  // 🌈 Widget แสดงผลข้อมูลอากาศ
+
   Widget _buildWeatherCard() {
     return Card(
       color: Colors.grey[900],

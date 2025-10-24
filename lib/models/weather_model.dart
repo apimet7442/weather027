@@ -9,7 +9,6 @@ class Weather {
     required this.condition,
   });
 
-  // ✅ ฟังก์ชันแปลง JSON → Model
   factory Weather.fromJson(Map<String, dynamic> json) {
     return Weather(
       cityName: json["name"],

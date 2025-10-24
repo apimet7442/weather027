@@ -7,7 +7,6 @@ class WeatherServices {
 
   WeatherServices(this.apiKey);
 
-  // ✅ ดึงอากาศจากชื่อเมือง + ประเทศ
   Future<Weather> getWeatherByCity(
       String city, String countryCode, String unit) async {
     final url =
@@ -21,7 +20,7 @@ class WeatherServices {
     }
   }
 
-  // ✅ ดึงอากาศจากรหัสไปรษณีย์ + ประเทศ
+
   Future<Weather> getWeatherByZip(
       String zip, String countryCode, String unit) async {
     final url =
@@ -35,7 +34,6 @@ class WeatherServices {
     }
   }
 
-  // ✅ ดึงอากาศจาก Latitude / Longitude
   Future<Weather> getWeatherByLatLon(
       double lat, double lon, String unit) async {
     final url =
