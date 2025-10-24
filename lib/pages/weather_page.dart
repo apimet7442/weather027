@@ -12,15 +12,13 @@ class WeatherPage extends StatefulWidget {
 
 class _WeatherPageState extends State<WeatherPage> {
   final WeatherServices _weatherService =
-      WeatherServices("d77fee68dbb4398aa73e433219b3ef60"); // 🔑 ใส่ API key ของคุณ
+      WeatherServices("d77fee68dbb4398aa73e433219b3ef60");
 
   Weather? _weather;
-  String _city = "";
-  String _zip = "";
-  String _lat = "";
-  String _lon = "";
+  String _city = "", _zip = "", _lat = "", _lon = "";
   String _selectedUnit = "metric";
   String _selectedCountry = "Thailand";
+  bool _isLoading = false;
 
   final List<String> _countries = [
     "Thailand",
@@ -36,12 +34,23 @@ class _WeatherPageState extends State<WeatherPage> {
     {"label": "Kelvin (K)", "value": "standard"},
   ];
 
-  bool _isLoading = false;
+
+  Future<void> _fetchWeather(Future<Weather> Function() fetchFn) async {
+    setState(() => _isLoading = true);
+    try {
+      final weather = await fetchFn();
+      setState(() => _weather = weather);
+    } catch (e) {
+      _showError("ไม่สามารถดึงข้อมูลได้: ${e.toString()}");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> _searchByCity() async {
     if (_city.isEmpty) return;
-    await _fetchWeather(() => _weatherService.getWeatherByCity(
-        _city, _selectedCountry, _selectedUnit));
+    await _fetchWeather(() =>
+        _weatherService.getWeatherByCity(_city, _selectedCountry, _selectedUnit));
   }
 
   Future<void> _searchByZip() async {
@@ -55,31 +64,18 @@ class _WeatherPageState extends State<WeatherPage> {
     final lat = double.tryParse(_lat);
     final lon = double.tryParse(_lon);
     if (lat == null || lon == null) {
-      _showError("Invalid latitude or longitude");
+      _showError("กรุณากรอกพิกัดให้ถูกต้อง");
       return;
     }
     await _fetchWeather(
         () => _weatherService.getWeatherByLatLon(lat, lon, _selectedUnit));
   }
 
-  Future<void> _fetchWeather(Future<Weather> Function() fetchFn) async {
-    setState(() => _isLoading = true);
-    try {
-      final weather = await fetchFn();
-      setState(() => _weather = weather);
-    } catch (e) {
-      _showError("❌ ${e.toString()}");
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.pinkAccent,
       ),
     );
   }
@@ -88,7 +84,7 @@ class _WeatherPageState extends State<WeatherPage> {
     condition = condition.toLowerCase();
     if (condition.contains("cloud")) return "assets/lottie/clouds.json";
     if (condition.contains("rain")) return "assets/lottie/rain.json";
-    if (condition.contains("clear")) return "assets/lottie/clearday.json";
+    if (condition.contains("clear")) return "assets/lottie/clear-day.json";
     if (condition.contains("mist") ||
         condition.contains("fog") ||
         condition.contains("haze")) {
@@ -97,182 +93,231 @@ class _WeatherPageState extends State<WeatherPage> {
     return "assets/lottie/weather-partly-cloudy.json";
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        elevation: 6,
+        backgroundColor: const Color(0xFF1A1A1A),
+        shadowColor: Colors.pinkAccent.withOpacity(0.3),
         centerTitle: true,
         title: const Text(
           "Weather Finder",
           style: TextStyle(
-              color: Colors.lightBlueAccent,
-              fontWeight: FontWeight.bold,
-              fontSize: 22),
+            color: Colors.pinkAccent,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            letterSpacing: 1.2,
+          ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _buildInputFields(),
-            const SizedBox(height: 20),
-            if (_isLoading)
-              const CircularProgressIndicator(color: Colors.lightBlueAccent),
-            if (_weather != null && !_isLoading) _buildWeatherCard(),
-          ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              _buildSearchCard(),
+              const SizedBox(height: 25),
+              if (_isLoading)
+                const CircularProgressIndicator(color: Colors.pinkAccent),
+              if (_weather != null && !_isLoading) _buildWeatherCard(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // --------------------------- Input Form --------------------------
-  Widget _buildInputFields() {
-    return Column(
-      children: [
-        TextField(
-          onChanged: (v) => _city = v,
-          style: const TextStyle(color: Colors.white),
-          decoration: _inputDecoration("City Name"),
-        ),
-        const SizedBox(height: 10),
-
-        DropdownButtonFormField<String>(
-          value: _selectedCountry,
-          dropdownColor: Colors.grey[900],
-          style: const TextStyle(color: Colors.white),
-          decoration: _inputDecoration("Country"),
-          items: _countries
-              .map((country) =>
-                  DropdownMenuItem(value: country, child: Text(country)))
-              .toList(),
-          onChanged: (value) =>
-              setState(() => _selectedCountry = value ?? "Thailand"),
-        ),
-        const SizedBox(height: 10),
-
-        DropdownButtonFormField<String>(
-          value: _selectedUnit,
-          dropdownColor: Colors.grey[900],
-          style: const TextStyle(color: Colors.white),
-          decoration: _inputDecoration("Temperature Unit"),
-          items: _units
-              .map((u) =>
-                  DropdownMenuItem(value: u["value"], child: Text(u["label"]!)))
-              .toList(),
-          onChanged: (value) =>
-              setState(() => _selectedUnit = value ?? "metric"),
-        ),
-        const SizedBox(height: 12),
-
-        _searchButton("Search by City", _searchByCity),
-        const Divider(color: Colors.blueGrey),
-
-        // ZIP Search
-        TextField(
-          onChanged: (v) => _zip = v,
-          style: const TextStyle(color: Colors.white),
-          decoration: _inputDecoration("ZIP Code"),
-        ),
-        const SizedBox(height: 10),
-        _searchButton("Search by ZIP", _searchByZip),
-        const Divider(color: Colors.blueGrey),
-
-        // Lat/Lon
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                onChanged: (v) => _lat = v,
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration("Latitude"),
-                keyboardType: TextInputType.number,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                onChanged: (v) => _lon = v,
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration("Longitude"),
-                keyboardType: TextInputType.number,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        _searchButton("Search by Lat/Lon", _searchByLatLon),
-      ],
-    );
-  }
-
-  // --------------------------- Weather Card --------------------------
-  Widget _buildWeatherCard() {
+  
+  Widget _buildSearchCard() {
     return Card(
-      color: Colors.grey[900],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: const Color(0xFF1C1C1C),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       elevation: 10,
+      shadowColor: Colors.pinkAccent.withOpacity(0.3),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Lottie.asset(_getWeatherAnimation(_weather!.condition),
-                width: 160, height: 160, repeat: true),
-            const SizedBox(height: 10),
-            Text(
-              _weather!.cityName,
-              style: const TextStyle(
-                  color: Colors.lightBlueAccent,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold),
+            const Text(
+              "🔎 ค้นหาสภาพอากาศ",
+              style: TextStyle(
+                color: Colors.pinkAccent,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              "${_weather!.temperature.round()}°",
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 42,
-                  fontWeight: FontWeight.bold),
+            const SizedBox(height: 16),
+
+            
+            TextField(
+              onChanged: (v) => _city = v,
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDecoration("City Name"),
             ),
-            const SizedBox(height: 6),
-            Text(
-              _weather!.condition,
-              style: const TextStyle(color: Colors.grey, fontSize: 18),
+            const SizedBox(height: 12),
+
+            
+            DropdownButtonFormField<String>(
+              value: _selectedCountry,
+              dropdownColor: Colors.grey[900],
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDecoration("Country"),
+              items: _countries
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (v) =>
+                  setState(() => _selectedCountry = v ?? "Thailand"),
             ),
+            const SizedBox(height: 12),
+
+            
+            DropdownButtonFormField<String>(
+              value: _selectedUnit,
+              dropdownColor: Colors.grey[900],
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDecoration("Temperature Unit"),
+              items: _units
+                  .map((u) =>
+                      DropdownMenuItem(value: u["value"], child: Text(u["label"]!)))
+                  .toList(),
+              onChanged: (v) =>
+                  setState(() => _selectedUnit = v ?? "metric"),
+            ),
+            const SizedBox(height: 20),
+
+            
+            _searchButton("Search by City", _searchByCity),
+            _divider(),
+
+            TextField(
+              onChanged: (v) => _zip = v,
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDecoration("ZIP Code"),
+            ),
+            const SizedBox(height: 12),
+            _searchButton("Search by ZIP", _searchByZip),
+            _divider(),
+
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    onChanged: (v) => _lat = v,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _inputDecoration("Latitude"),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    onChanged: (v) => _lon = v,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _inputDecoration("Longitude"),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _searchButton("Search by Lat/Lon", _searchByLatLon),
           ],
         ),
       ),
     );
   }
 
-  // --------------------------- Common Widgets --------------------------
+
+  Widget _buildWeatherCard() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+      child: Card(
+        color: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shadowColor: Colors.pinkAccent.withOpacity(0.4),
+        elevation: 12,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Lottie.asset(_getWeatherAnimation(_weather!.condition),
+                  width: 180, height: 180, repeat: true),
+              const SizedBox(height: 12),
+              Text(
+                _weather!.cityName,
+                style: const TextStyle(
+                  color: Colors.pinkAccent,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "${_weather!.temperature.round()}°",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _weather!.condition,
+                style: const TextStyle(
+                    color: Colors.grey, fontSize: 18, fontStyle: FontStyle.italic),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
   Widget _searchButton(String text, VoidCallback onPressed) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.lightBlueAccent,
+        backgroundColor: Colors.pinkAccent,
         foregroundColor: Colors.black,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        shadowColor: Colors.pinkAccent.withOpacity(0.4),
+        elevation: 6,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       ),
       onPressed: _isLoading ? null : onPressed,
-      child: Text(text),
+      child: Text(
+        text,
+        style: const TextStyle(
+            fontWeight: FontWeight.bold, letterSpacing: 0.5, fontSize: 16),
+      ),
     );
   }
 
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.blueAccent),
+      labelStyle: const TextStyle(color: Colors.pinkAccent),
+      filled: true,
+      fillColor: const Color(0xFF2A2A2A),
       enabledBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: Colors.blueAccent),
+        borderSide: const BorderSide(color: Colors.pinkAccent),
         borderRadius: BorderRadius.circular(12),
       ),
       focusedBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: Colors.lightBlueAccent, width: 2),
+        borderSide: const BorderSide(color: Colors.pinkAccent, width: 2),
         borderRadius: BorderRadius.circular(12),
       ),
     );
   }
+
+  Widget _divider() => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 10),
+        child: Divider(color: Colors.grey, height: 20, thickness: 0.6),
+      );
 }
